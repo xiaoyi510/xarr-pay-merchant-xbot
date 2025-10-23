@@ -1,0 +1,19 @@
+bot:
+  nickname: ["机器人", "小助手"]
+  super_users: [123456789]
+  command_prefix: "/"
+
+drivers:
+  - type: ws_reverse
+    url: "ws://127.0.0.1:8080"
+    access_token: ""
+    reconnect_interval: 5
+    max_reconnect: 0
+    timeout: 30
+
+log:
+  level: "info"
+  file: "logs/bot.log"
+
+storage:
+  type: "leveldb"
