@@ -1,5 +1,7 @@
 # XArrPay 商户版机器人
 
+[![Release](https://github.com/xiaoyi510/xarr-pay-merchant-xbot/actions/workflows/release.yml/badge.svg)](https://github.com/xiaoyi510/xarr-pay-merchant-xbot/actions/workflows/release.yml)
+
 这是基于 [XBot](https://github.com/xiaoyi510/xbot) 框架开发的 XArrPay 商户版支付系统 OneBot 机器人，为 XArrPay 商户提供便捷的 QQ 机器人服务。
 
 ## 项目简介
