@@ -1,0 +1,23 @@
+# CI 专用 Dockerfile - 使用预编译的二进制文件，避免重复编译
+FROM alpine:latest
+
+# 安装运行时依赖
+RUN apk add --no-cache ca-certificates tzdata && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
+
+# 设置工作目录
+WORKDIR /app
+
+# 根据目标架构复制对应的预编译二进制文件
+ARG TARGETARCH
+COPY dist/xarr-pay-merchant-xbot-linux-${TARGETARCH} ./xarr-pay-merchant-xbot
+
+# 设置执行权限
+RUN chmod +x ./xarr-pay-merchant-xbot
+
+# 创建必要的目录
+RUN mkdir -p logs data/storage
+
+# 启动应用
+ENTRYPOINT ["./xarr-pay-merchant-xbot"]
