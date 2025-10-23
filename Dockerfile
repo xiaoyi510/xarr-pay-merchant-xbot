@@ -1,5 +1,5 @@
 # 阶段1: 打包构建阶段
-FROM golang:1.25.3-alpine AS builder
+FROM golang:1.23.3-alpine AS builder
 
 # 设置工作目录
 WORKDIR /build
@@ -19,7 +19,7 @@ RUN go mod download
 COPY . .
 
 # 编译项目，生成静态链接的二进制文件
-RUN go build -ldflags="-s -w" -o xarr-xbot main.go
+RUN go build -ldflags="-s -w" -o xarr-pay-merchant-xbot main.go
 
 # 阶段2: 运行环境阶段
 FROM alpine:latest
@@ -34,10 +34,10 @@ RUN apk add --no-cache ca-certificates tzdata && \
 WORKDIR /app
 
 # 从构建阶段复制编译好的二进制文件
-COPY --from=builder /build/xarr-xbot .
+COPY --from=builder /build/xarr-pay-merchant-xbot .
 
 # 创建必要的目录
 RUN mkdir -p logs data/storage
 
 # 启动应用
-ENTRYPOINT ["./xarr-xbot"]
+ENTRYPOINT ["./xarr-pay-merchant-xbot"]

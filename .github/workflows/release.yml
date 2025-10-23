@@ -1,0 +1,140 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23.3'
+
+    - name: Get version
+      id: get_version
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION=dev-$(date +%Y%m%d-%H%M%S)
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+
+    - name: Build binaries
+      run: |
+        mkdir -p dist
+        
+        # Build for Linux amd64
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/xarr-pay-merchant-xbot-linux-amd64 .
+        
+        # Build for Linux arm64
+        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/xarr-pay-merchant-xbot-linux-arm64 .
+        
+        # Build for Windows amd64
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/xarr-pay-merchant-xbot-windows-amd64.exe .
+        
+        # Build for Windows arm64
+        GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o dist/xarr-pay-merchant-xbot-windows-arm64.exe .
+        
+        # Build for macOS amd64
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/xarr-pay-merchant-xbot-darwin-amd64 .
+        
+        # Build for macOS arm64 (Apple Silicon)
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/xarr-pay-merchant-xbot-darwin-arm64 .
+
+    - name: Create archives
+      run: |
+        cd dist
+        
+        # Create tar.gz for Linux and macOS
+        tar -czf xarr-pay-merchant-xbot-linux-amd64.tar.gz xarr-pay-merchant-xbot-linux-amd64
+        tar -czf xarr-pay-merchant-xbot-linux-arm64.tar.gz xarr-pay-merchant-xbot-linux-arm64
+        tar -czf xarr-pay-merchant-xbot-darwin-amd64.tar.gz xarr-pay-merchant-xbot-darwin-amd64
+        tar -czf xarr-pay-merchant-xbot-darwin-arm64.tar.gz xarr-pay-merchant-xbot-darwin-arm64
+        
+        # Create zip for Windows
+        zip xarr-pay-merchant-xbot-windows-amd64.zip xarr-pay-merchant-xbot-windows-amd64.exe
+        zip xarr-pay-merchant-xbot-windows-arm64.zip xarr-pay-merchant-xbot-windows-arm64.exe
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/xarr-pay-merchant-xbot-linux-amd64.tar.gz
+          dist/xarr-pay-merchant-xbot-linux-arm64.tar.gz
+          dist/xarr-pay-merchant-xbot-darwin-amd64.tar.gz
+          dist/xarr-pay-merchant-xbot-darwin-arm64.tar.gz
+          dist/xarr-pay-merchant-xbot-windows-amd64.zip
+          dist/xarr-pay-merchant-xbot-windows-arm64.zip
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Output summary
+      run: |
+        echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+        echo "Version: ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "### Built Artifacts:" >> $GITHUB_STEP_SUMMARY
+        echo "- Linux AMD64: xarr-pay-merchant-xbot-linux-amd64.tar.gz" >> $GITHUB_STEP_SUMMARY
+        echo "- Linux ARM64: xarr-pay-merchant-xbot-linux-arm64.tar.gz" >> $GITHUB_STEP_SUMMARY
+        echo "- macOS AMD64: xarr-pay-merchant-xbot-darwin-amd64.tar.gz" >> $GITHUB_STEP_SUMMARY
+        echo "- macOS ARM64: xarr-pay-merchant-xbot-darwin-arm64.tar.gz" >> $GITHUB_STEP_SUMMARY
+        echo "- Windows AMD64: xarr-pay-merchant-xbot-windows-amd64.zip" >> $GITHUB_STEP_SUMMARY
+        echo "- Windows ARM64: xarr-pay-merchant-xbot-windows-arm64.zip" >> $GITHUB_STEP_SUMMARY
+        echo "### Docker Images:" >> $GITHUB_STEP_SUMMARY
+        echo "- ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "- ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY

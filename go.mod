@@ -1,6 +1,6 @@
 module mian
 
-go 1.25.3
+go 1.23.3
 
 require (
 	github.com/imroc/req/v3 v3.55.0
